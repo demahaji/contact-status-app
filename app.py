@@ -25,7 +25,7 @@ st.write(f"選択日: {selected_date.strftime('%Y/%m/%d')}")
 # ==== アップロード日からファイル名を探索 ====（week-XXを無視）
 upload_date = selected_date + datetime.timedelta(days=1)
 file_date_str = upload_date.strftime("%Y-%m-%d")
-pattern = f"*{file_date_str}.xlsx"
+pattern = f"*{file_date_str}*.xlsx"  # ★ 変更点：日付を含むファイルを検索
 matched_files = glob.glob(str(DATA_FOLDER / pattern))
 
 if matched_files:
@@ -33,7 +33,7 @@ if matched_files:
     file_name = file_path.name
 else:
     file_path = None
-    file_name = f"(見つからず): *{file_date_str}.xlsx"
+    file_name = f"(見つからず): *{file_date_str}*.xlsx"
 
 # ==== データ読み込み ====
 if file_path and file_path.exists():
