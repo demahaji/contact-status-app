@@ -19,7 +19,7 @@ st.markdown("# 📞 Contact Status 監視アプリ")
 selected_date = st.date_input("対象日を選択", datetime.date.today() - datetime.timedelta(days=1))
 st.write(f"選択日: {selected_date.strftime('%Y/%m/%d')}")
 
-# ==== アップロード日からファイル名を探索 ====（YYYY-MM-DDで完全一致）
+# ==== アップロード日からファイル名を探索 ====
 upload_date = selected_date + datetime.timedelta(days=1)
 file_date_str = upload_date.strftime("%Y-%m-%d")
 
@@ -38,7 +38,7 @@ if file_path and file_path.exists():
     try:
         df = pd.read_excel(file_path)
 
-        # contact関連カラムを文字列に統一（pyarrow対策）
+        # contact関連カラムを文字列に統一
         for col in ["架電有無", "テキスト送付有無", "お客様発信有無"]:
             if col in df.columns:
                 df[col] = df[col].astype(str)
@@ -89,6 +89,66 @@ if file_path and file_path.exists():
             # ==== 全体の件数 ====
             with st.expander("📊 全体の未対応件数（ドライバー別）"):
                 st.dataframe(summary, use_container_width=True)
+
+            # ==== 7日間の対応率集計表示 ====
+            st.markdown("## 📆 過去7日間の対応実績")
+
+            days_range = [selected_date - datetime.timedelta(days=i) for i in range(6, -1, -1)]
+            summary_data = []
+
+            for day in days_range:
+                upload_day = day + datetime.timedelta(days=1)
+                file_name_day = upload_day.strftime("%Y-%m-%d")
+
+                matched_file = None
+                for file in DATA_FOLDER.glob("*.xlsx"):
+                    if file_name_day in file.name:
+                        matched_file = file
+                        break
+
+                if matched_file and matched_file.exists():
+                    try:
+                        tmp_df = pd.read_excel(matched_file)
+                        if "contact_status" in tmp_df.columns:
+                            contact_counts = tmp_df["contact_status"].value_counts()
+
+                            needed = sum(contact_counts.get(status, 0) for status in [
+                                "both_call_and_text", "call_only", "text_only", "no_contact"
+                            ])
+                            no_contact = contact_counts.get("no_contact", 0)
+                            done = needed - no_contact
+                            rate = (done / needed * 100) if needed > 0 else 0.0
+
+                            summary_data.append({
+                                "日付": day.strftime("%Y-%m-%d"),
+                                "実施率": f"{rate:.1f}%",
+                                "必要件数": needed,
+                                "未対応件数": no_contact
+                            })
+                        else:
+                            summary_data.append({
+                                "日付": day.strftime("%Y-%m-%d"),
+                                "実施率": "N/A",
+                                "必要件数": "N/A",
+                                "未対応件数": "N/A"
+                            })
+                    except Exception as e:
+                        summary_data.append({
+                            "日付": day.strftime("%Y-%m-%d"),
+                            "実施率": "エラー",
+                            "必要件数": "-",
+                            "未対応件数": "-"
+                        })
+                else:
+                    summary_data.append({
+                        "日付": day.strftime("%Y-%m-%d"),
+                        "実施率": "未収集",
+                        "必要件数": "-",
+                        "未対応件数": "-"
+                    })
+
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, use_container_width=True)
 
     except Exception as e:
         st.error("❌ データの読み込み中にエラーが発生しました。")
