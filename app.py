@@ -3,8 +3,8 @@ import pandas as pd
 import datetime
 import os
 from pathlib import Path
-import glob  # 追加
-import unicodedata  # 半角変換用
+import glob
+import unicodedata
 
 # ページ全体をワイドに表示
 st.set_page_config(layout="wide")
@@ -25,8 +25,11 @@ st.write(f"選択日: {selected_date.strftime('%Y/%m/%d')}")
 # ==== アップロード日からファイル名を探索 ====（week-XXを無視）
 upload_date = selected_date + datetime.timedelta(days=1)
 file_date_str = upload_date.strftime("%Y-%m-%d")
-pattern = f"*{file_date_str}*.xlsx"  # ★ 変更点：日付を含むファイルを検索
-matched_files = glob.glob(str(DATA_FOLDER / pattern))
+pattern = f"*{file_date_str}*.xlsx"
+
+# glob用に正しくパスを結合（Pathだと正しく動かない場合がある）
+search_path = os.path.join(str(DATA_FOLDER), pattern)
+matched_files = glob.glob(search_path)
 
 if matched_files:
     file_path = Path(matched_files[0])
