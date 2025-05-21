@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 import os
 from pathlib import Path
-import glob
 import unicodedata
 
 # ページ全体をワイドに表示
@@ -20,21 +19,18 @@ st.markdown("# 📞 Contact Status 監視アプリ")
 selected_date = st.date_input("対象日を選択", datetime.date.today() - datetime.timedelta(days=1))
 st.write(f"選択日: {selected_date.strftime('%Y/%m/%d')}")
 
-# ==== アップロード日からファイル名を探索 ====（week-XXを無視）
+# ==== アップロード日からファイル名を探索 ====（YYYY-MM-DDで完全一致）
 upload_date = selected_date + datetime.timedelta(days=1)
 file_date_str = upload_date.strftime("%Y-%m-%d")
 
-# glob検索パターン
-search_pattern = f"*{file_date_str}*.xlsx"
-search_path = os.path.join(str(DATA_FOLDER), search_pattern)
-matched_files = glob.glob(search_path)
+file_path = None
+file_name = f"(見つからず): {file_date_str}.xlsx"
 
-if matched_files:
-    file_path = Path(matched_files[0])
-    file_name = file_path.name
-else:
-    file_path = None
-    file_name = f"(見つからず): *{file_date_str}*.xlsx"
+for file in DATA_FOLDER.glob("*.xlsx"):
+    if file_date_str in file.name:
+        file_path = file
+        file_name = file.name
+        break
 
 # ==== データ読み込み ====
 if file_path and file_path.exists():
