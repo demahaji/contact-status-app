@@ -38,12 +38,10 @@ if file_path and file_path.exists():
     try:
         df = pd.read_excel(file_path)
 
-        # contact関連カラムを文字列に統一
         for col in ["架電有無", "テキスト送付有無", "お客様発信有無"]:
             if col in df.columns:
                 df[col] = df[col].astype(str)
 
-        # 必須カラム確認
         if "transporter_id" not in df.columns or "contact_status" not in df.columns:
             st.error("❌ 必須のカラム（transporter_id / contact_status）が見つかりません")
         else:
@@ -86,65 +84,57 @@ if file_path and file_path.exists():
                     display_cols = [col for col in no_contact_df.columns if col not in exclude_cols]
                     st.dataframe(no_contact_df[no_contact_df["driver_name"] == name][display_cols], use_container_width=True)
 
-            # ==== 全体の件数 ====
             with st.expander("📊 全体の未対応件数（ドライバー別）"):
                 st.dataframe(summary, use_container_width=True)
 
-            # ==== 7日間の対応率集計表示 ====
+            # ==== 📆 過去7日間の対応実績 ====
             st.markdown("## 📆 過去7日間の対応実績")
 
-            days_range = [selected_date - datetime.timedelta(days=i) for i in range(6, -1, -1)]
             summary_data = []
 
-            for day in days_range:
-                upload_day = day + datetime.timedelta(days=1)
-                file_name_day = upload_day.strftime("%Y-%m-%d")
+            for i in range(7):
+                target_day = selected_date - datetime.timedelta(days=i)
+                upload_day = target_day + datetime.timedelta(days=1)
+                fname = upload_day.strftime("%Y-%m-%d")
+                fpath = next(DATA_FOLDER.glob(f"*{fname}*.xlsx"), None)
 
-                matched_file = None
-                for file in DATA_FOLDER.glob("*.xlsx"):
-                    if file_name_day in file.name:
-                        matched_file = file
-                        break
-
-                if matched_file and matched_file.exists():
+                if fpath and fpath.exists():
                     try:
-                        tmp_df = pd.read_excel(matched_file)
-                        if "contact_status" in tmp_df.columns:
-                            contact_counts = tmp_df["contact_status"].value_counts()
+                        day_df = pd.read_excel(fpath)
 
-                            needed = sum(contact_counts.get(status, 0) for status in [
-                                "both_call_and_text", "call_only", "text_only", "no_contact"
-                            ])
-                            no_contact = contact_counts.get("no_contact", 0)
-                            done = needed - no_contact
-                            rate = (done / needed * 100) if needed > 0 else 0.0
-
+                        if "contact_status" in day_df.columns:
+                            total = day_df["contact_status"].isin([
+                                "both_call_and_textcall_only", "text_only", "call_only", "no_contact"
+                            ]).sum()
+                            no_contact = (day_df["contact_status"] == "no_contact").sum()
+                            done = total - no_contact
+                            rate = f"{round(done / total * 100)}%" if total > 0 else "0%"
                             summary_data.append({
-                                "日付": day.strftime("%Y-%m-%d"),
-                                "実施率": f"{rate:.1f}%",
-                                "必要件数": needed,
-                                "未対応件数": no_contact
+                                "日付": target_day.strftime("%Y-%m-%d"),
+                                "実施率": rate,
+                                "必要件数": f"{total}件",
+                                "未対応件数": f"{no_contact}件"
                             })
                         else:
                             summary_data.append({
-                                "日付": day.strftime("%Y-%m-%d"),
+                                "日付": target_day.strftime("%Y-%m-%d"),
                                 "実施率": "N/A",
                                 "必要件数": "N/A",
                                 "未対応件数": "N/A"
                             })
-                    except Exception as e:
+                    except:
                         summary_data.append({
-                            "日付": day.strftime("%Y-%m-%d"),
-                            "実施率": "エラー",
-                            "必要件数": "-",
-                            "未対応件数": "-"
+                            "日付": target_day.strftime("%Y-%m-%d"),
+                            "実施率": "N/A",
+                            "必要件数": "N/A",
+                            "未対応件数": "N/A"
                         })
                 else:
                     summary_data.append({
-                        "日付": day.strftime("%Y-%m-%d"),
-                        "実施率": "未収集",
-                        "必要件数": "-",
-                        "未対応件数": "-"
+                        "日付": target_day.strftime("%Y-%m-%d"),
+                        "実施率": "N/A",
+                        "必要件数": "N/A",
+                        "未対応件数": "N/A"
                     })
 
             summary_df = pd.DataFrame(summary_data)
