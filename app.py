@@ -14,9 +14,7 @@ DATA_FOLDER = Path("data")  # 保存先フォルダ
 MAPPING_FILE = Path("driver_mapping.csv")
 
 # ==== タイトル ====
-st.markdown("""
-# 📞 Contact Status 監視アプリ
-""")
+st.markdown("# 📞 Contact Status 監視アプリ")
 
 # ==== 日付選択 ====
 selected_date = st.date_input("対象日を選択", datetime.date.today() - datetime.timedelta(days=1))
@@ -25,10 +23,10 @@ st.write(f"選択日: {selected_date.strftime('%Y/%m/%d')}")
 # ==== アップロード日からファイル名を探索 ====（week-XXを無視）
 upload_date = selected_date + datetime.timedelta(days=1)
 file_date_str = upload_date.strftime("%Y-%m-%d")
-pattern = f"*{file_date_str}*.xlsx"
 
-# glob用に正しくパスを結合（Pathだと正しく動かない場合がある）
-search_path = os.path.join(str(DATA_FOLDER), pattern)
+# glob検索パターン
+search_pattern = f"*{file_date_str}*.xlsx"
+search_path = os.path.join(str(DATA_FOLDER), search_pattern)
 matched_files = glob.glob(search_path)
 
 if matched_files:
@@ -44,12 +42,12 @@ if file_path and file_path.exists():
     try:
         df = pd.read_excel(file_path)
 
-        # 必要な列を文字列に（pyarrow 対策）
+        # contact関連カラムを文字列に統一（pyarrow対策）
         for col in ["架電有無", "テキスト送付有無", "お客様発信有無"]:
             if col in df.columns:
                 df[col] = df[col].astype(str)
 
-        # 必須カラムチェック
+        # 必須カラム確認
         if "transporter_id" not in df.columns or "contact_status" not in df.columns:
             st.error("❌ 必須のカラム（transporter_id / contact_status）が見つかりません")
         else:
@@ -62,7 +60,9 @@ if file_path and file_path.exists():
                 mapping_df["driver_name"] = mapping_df["driver_name"].apply(lambda x: str(x).strip())
                 mapping_dict = dict(zip(mapping_df["transporter_id"], mapping_df["driver_name"]))
 
-                df["transporter_id"] = df["transporter_id"].apply(lambda x: unicodedata.normalize("NFKC", str(x)).strip())
+                df["transporter_id"] = df["transporter_id"].apply(
+                    lambda x: unicodedata.normalize("NFKC", str(x)).strip()
+                )
                 df["driver_name"] = df["transporter_id"].map(mapping_dict).fillna(df["transporter_id"])
             else:
                 st.warning("⚠️ マッピングファイルが読み込めませんでした。IDをそのまま使用します。")
@@ -82,7 +82,6 @@ if file_path and file_path.exists():
                 name = row["driver_name"]
                 count = row["no_contact_count"]
                 with st.expander(f"🚨 {name}（未対応: {count} 件）"):
-                    # 指定されたカラムを除外して表示
                     exclude_cols = [
                         "Company", "event_week", "delivery_station_code",
                         "provider_company_short_code", "provider_type",
