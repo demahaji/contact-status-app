@@ -1,7 +1,7 @@
 name: Download CCDAY Report
 
 on:
-  workflow_dispatch:  # 手動で実行可能にするトリガー（今はこれだけでOK）
+  workflow_dispatch:
 
 jobs:
   run-download:
@@ -22,15 +22,10 @@ jobs:
           pip install -r requirements.txt
           sudo apt-get update
           sudo apt-get install -y chromium-browser
-          export CHROMEDRIVER_DIR=$(pwd)
-          wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
-          unzip chromedriver_linux64.zip
-          chmod +x chromedriver
 
       - name: 環境変数を渡してダウンロードスクリプト実行
         env:
           CCDAY_EMAIL: ${{ secrets.CCDAY_EMAIL }}
           CCDAY_PASSWORD: ${{ secrets.CCDAY_PASSWORD }}
-          PATH: ${{ github.workspace }}:$PATH  # chromedriver にPATHを通す
         run: |
           python download_ccday.py
