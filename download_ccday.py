@@ -11,17 +11,19 @@ import time
 import os
 import glob
 
-# --- ログイン情報（GitHub Secrets から渡される） ---
+# --- ログイン情報 ---
 EMAIL = os.environ.get("CCDAY_EMAIL")
 PASSWORD = os.environ.get("CCDAY_PASSWORD")
+
 if not EMAIL or not PASSWORD:
     raise ValueError("環境変数 CCDAY_EMAIL または CCDAY_PASSWORD が設定されていません。")
 
-# --- 保存先ディレクトリの設定 ---
+# --- ダウンロード保存先 ---
 DOWNLOAD_DIR = os.path.abspath("data")
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
 
-# --- Chrome起動オプション ---
+# --- Chromeオプション ---
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
 chrome_options.add_argument("--no-sandbox")
@@ -37,80 +39,69 @@ prefs = {
 chrome_options.add_experimental_option("prefs", prefs)
 
 # --- WebDriver起動 ---
-driver = webdriver.Chrome(
-    service=Service(ChromeDriverManager().install()),
-    options=chrome_options
-)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
-# --- 日付に基づくファイル名の構築 ---
+# --- 日付設定（例：今日の前日） ---
 today = datetime.date.today()
-target_date = today  # 前日データが必要なら today - datetime.timedelta(days=1)
+target_date = today - datetime.timedelta(days=1)
 year, week_number, _ = target_date.isocalendar()
 date_str = target_date.strftime("%Y-%m-%d")
 
-# --- レポートページURLを生成 ---
+# --- レポートページのURL生成 ---
 report_url = (
-    f"https://logistics.amazon.co.jp/performance?"
-    f"pageId=dsp_supp_reports&navMenuVariant=external&station=DEJ3"
-    f"&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
+    f"https://logistics.amazon.co.jp/performance?pageId=dsp_supp_reports"
+    f"&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
     f"&tabId=safety-dsp-weekly-tab&timeFrame=Weekly&to={year}-W{week_number}"
 )
-
-# --- ログインページへ ---
 driver.get(report_url)
 time.sleep(3)
 
-# --- メール入力 & 認証 ---
+# --- ログイン ---
 email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
 email_input.send_keys(EMAIL)
 email_input.send_keys(Keys.RETURN)
-time.sleep(3)
+time.sleep(2)
 
 password_input = wait.until(EC.presence_of_element_located((By.ID, "ap_password")))
 password_input.send_keys(PASSWORD)
 password_input.send_keys(Keys.RETURN)
 time.sleep(5)
 
-print("✅ ログイン完了")
+print("✅ ログイン完了、レポートページが開かれたはずです。")
 
-# --- ★ ここで再度レポートページを開き直し ★ ---
-driver.get(report_url)
-time.sleep(3)
-print("🔄 レポートページをリロードしました")
-
-# --- ダウンロードリンク検出 & 実行 ---
+# --- innerText でリンク要素を探す ---
 try:
-    links = driver.find_elements(By.TAG_NAME, "a")
-    print(f"🔍 検出されたリンク数: {len(links)}")
+    wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(text(), 'Daily_ContactCompliance')]")))
+    elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Daily_ContactCompliance')]")
+    print(f"🔍 'Daily_ContactCompliance' を含む要素数: {len(elements)}")
+
     download_found = False
 
-    for idx, link in enumerate(links):
-        href = link.get_attribute("href") or ""
-        text = link.text or ""
-        # ログ出力（確認用）
-        print(f"[{idx}] href: {href}")
-        if ("Daily_ContactCompliance" in href and date_str in href) or \
-           ("Daily_ContactCompliance" in text and date_str in text):
-            print(f"✅ 該当ファイルリンクを発見: {href or text}")
-            driver.execute_script("arguments[0].click();", link)
-            print("📥 ダウンロードを開始しました。")
-            download_found = True
-            break
+    for idx, el in enumerate(elements):
+        text = el.text.strip()
+        print(f"[{idx}] text: {text}")
+        if date_str in text:
+            print(f"✅ 対象ファイル名を検出: {text}")
+            try:
+                driver.execute_script("arguments[0].click();", el)
+                print("📥 ダウンロードを開始しました")
+                download_found = True
+                break
+            except Exception as e:
+                print(f"⚠️ クリック失敗: {e}")
 
     if not download_found:
-        raise Exception(f"リンクが見つかりませんでした: キー ワード = Daily_ContactCompliance-{date_str}.xlsx")
+        raise Exception(f"リンクが見つかりませんでした: キーワード = Daily_ContactCompliance-{date_str}.xlsx")
 
-    # --- ダウンロード完了を待機（最大30秒） ---
+    # --- ダウンロード完了を最大30秒待機 ---
     for i in range(30):
-        files = glob.glob(os.path.join(DOWNLOAD_DIR, f"*Daily_ContactCompliance*{date_str}*.xlsx"))
-        if files:
-            print(f"✅ ファイルが保存されました: {files[0]}")
-            download_found = True
+        downloaded_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"*Daily_ContactCompliance*{date_str}*.xlsx"))
+        if downloaded_files:
+            print(f"✅ ファイルが保存されました: {downloaded_files[0]}")
             break
         time.sleep(1)
-
-    if not download_found:
+    else:
         raise Exception("⚠️ 30秒待ってもファイルが見つかりませんでした。")
 
 except Exception as e:
