@@ -56,10 +56,11 @@ report_url = (
 )
 
 try:
+    # --- レポートページにアクセス ---
     driver.get(report_url)
     time.sleep(3)
 
-    # --- ログイン ---
+    # --- ログイン処理 ---
     email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
     email_input.send_keys(EMAIL)
     email_input.send_keys(Keys.RETURN)
@@ -68,25 +69,25 @@ try:
     password_input = wait.until(EC.presence_of_element_located((By.ID, "ap_password")))
     password_input.send_keys(PASSWORD)
     password_input.send_keys(Keys.RETURN)
+
     # --- 2段階認証が表示される場合の対応 ---
-try:
-    mfa_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "auth-mfa-otpcode"))
-    )
-    print("🔐 2段階認証コードの入力待ちです（手動で入力してください）")
-    
-    # ユーザーが入力するまで待機（30秒まで）
-    for i in range(30):
-        if mfa_input.get_attribute("value"):
-            print("✅ 2段階認証コードが入力されました")
-            mfa_input.send_keys(Keys.RETURN)
-            break
-        time.sleep(1)
-    else:
-        raise Exception("⚠️ 2段階認証コードの入力が確認できませんでした")
-except:
-    print("🔓 2段階認証画面は表示されませんでした")
-    time.sleep(5)
+    try:
+        mfa_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "auth-mfa-otpcode"))
+        )
+        print("🔐 2段階認証コードの入力待ちです（手動で入力してください）")
+
+        for i in range(30):
+            if mfa_input.get_attribute("value"):
+                print("✅ 2段階認証コードが入力されました")
+                mfa_input.send_keys(Keys.RETURN)
+                break
+            time.sleep(1)
+        else:
+            raise Exception("⚠️ 2段階認証コードの入力が確認できませんでした")
+    except:
+        print("🔓 2段階認証画面は表示されませんでした")
+        time.sleep(5)
 
     print("✅ ログイン完了、レポートページが開かれたはずです。")
 
