@@ -75,6 +75,15 @@ print("✅ ログイン完了、レポートページが開かれたはずです
 # --- ダウンロードリンク検出 & 実行 ---
 try:
     links = driver.find_elements(By.TAG_NAME, "a")
+
+ # 全リンクを出力して調査
+    print(f"🔍 検出されたリンク数: {len(links)}")
+    for i, link in enumerate(links):
+        href = link.get_attribute("href")
+        if href:
+            print(f"[{i}] href: {href}")
+
+    
     download_found = False
 
     for link in links:
