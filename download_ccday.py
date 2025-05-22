@@ -54,24 +54,25 @@ report_url = (
     f"&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
     f"&tabId=safety-dsp-weekly-tab&timeFrame=Weekly&to={year}-W{week_number}"
 )
-driver.get(report_url)
-time.sleep(3)
 
-# --- ログイン ---
-email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
-email_input.send_keys(EMAIL)
-email_input.send_keys(Keys.RETURN)
-time.sleep(2)
-
-password_input = wait.until(EC.presence_of_element_located((By.ID, "ap_password")))
-password_input.send_keys(PASSWORD)
-password_input.send_keys(Keys.RETURN)
-time.sleep(5)
-
-print("✅ ログイン完了、レポートページが開かれたはずです。")
-
-# --- innerText でリンク要素を探す ---
 try:
+    driver.get(report_url)
+    time.sleep(3)
+
+    # --- ログイン ---
+    email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
+    email_input.send_keys(EMAIL)
+    email_input.send_keys(Keys.RETURN)
+    time.sleep(2)
+
+    password_input = wait.until(EC.presence_of_element_located((By.ID, "ap_password")))
+    password_input.send_keys(PASSWORD)
+    password_input.send_keys(Keys.RETURN)
+    time.sleep(5)
+
+    print("✅ ログイン完了、レポートページが開かれたはずです。")
+
+    # --- innerText でリンク要素を探す ---
     wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(text(), 'Daily_ContactCompliance')]")))
     elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Daily_ContactCompliance')]")
     print(f"🔍 'Daily_ContactCompliance' を含む要素数: {len(elements)}")
@@ -88,8 +89,15 @@ try:
                 print("📥 ダウンロードを開始しました")
                 download_found = True
                 break
-            except Exception as e:
-                print(f"⚠️ クリック失敗: {e}")
+            except Exception as click_e:
+                print(f"⚠️ クリック失敗: {click_e}")
+                try:
+                    el.send_keys(Keys.CONTROL, Keys.RETURN)
+                    print("📥 別ウィンドウで開くよう試行しました")
+                    download_found = True
+                    break
+                except Exception as ctrl_e:
+                    print(f"⚠️ CTRL+クリックも失敗: {ctrl_e}")
 
     if not download_found:
         raise Exception(f"リンクが見つかりませんでした: キーワード = Daily_ContactCompliance-{date_str}.xlsx")
@@ -106,7 +114,7 @@ try:
 
 except Exception as e:
     print("⚠️ ダウンロード処理中にエラーが発生しました。")
-    print(e)
+    print(f"Message: {repr(e)}")
 
 finally:
     driver.quit()
