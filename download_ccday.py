@@ -9,6 +9,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import datetime
 import time
 import os
+import glob
 
 # --- ログイン情報（GitHub Secrets から渡される） ---
 EMAIL = os.environ.get("CCDAY_EMAIL")
@@ -17,15 +18,20 @@ PASSWORD = os.environ.get("CCDAY_PASSWORD")
 if not EMAIL or not PASSWORD:
     raise ValueError("環境変数 CCDAY_EMAIL または CCDAY_PASSWORD が設定されていません。")
 
+# --- 保存先ディレクトリの設定 ---
+DOWNLOAD_DIR = os.path.abspath("data")
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
+
 # --- Chrome起動オプション ---
 chrome_options = Options()
-chrome_options.add_argument("--headless=new")  # 新しいheadlessモード
+chrome_options.add_argument("--headless=new")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument("--window-size=1920,1080")
 
-# ダウンロード設定（Linuxの場合はパス要調整することも）
 prefs = {
+    "download.default_directory": DOWNLOAD_DIR,
     "download.prompt_for_download": False,
     "download.directory_upgrade": True,
     "safebrowsing.enabled": True,
@@ -33,25 +39,29 @@ prefs = {
 }
 chrome_options.add_experimental_option("prefs", prefs)
 
-# --- WebDriver起動（webdriver-managerでChromeDriver自動取得） ---
+# --- WebDriver起動 ---
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
-# --- 日付に基づく週番号とファイル名部分の生成 ---
+# --- 日付に基づく週番号とファイル名の生成 ---
 today = datetime.date.today()
-target_date = today  # or today - datetime.timedelta(days=1)
+target_date = today  # 実データが前日分なら `today - datetime.timedelta(days=1)` にする
 year, week_number, _ = target_date.isocalendar()
 week_str = f"week-{week_number}"
 date_str = target_date.strftime("%Y-%m-%d")
 expected_filename_part = f"JP-DEMA-DEJ3-{week_str}-Daily_ContactCompliance-{date_str}.xlsx"
 
-# --- レポートURL ---
-report_url = f'https://logistics.amazon.co.jp/performance?pageId=dsp_supp_reports&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7&tabId=safety-dsp-weekly-tab&timeFrame=Weekly&to={year}-W{week_number}'
+# --- レポートページへアクセス ---
+report_url = (
+    f"https://logistics.amazon.co.jp/performance?pageId=dsp_supp_reports"
+    f"&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
+    f"&tabId=safety-dsp-weekly-tab&timeFrame=Weekly&to={year}-W{week_number}"
+)
 
-# --- ログイン処理 ---
 driver.get(report_url)
 time.sleep(3)
 
+# --- ログイン ---
 email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
 email_input.send_keys(EMAIL)
 email_input.send_keys(Keys.RETURN)
@@ -64,7 +74,7 @@ time.sleep(5)
 
 print("✅ ログイン完了、レポートページが開かれたはずです。")
 
-# --- ダウンロードリンクを検出してクリック ---
+# --- ダウンロードリンク検出 & 実行 ---
 try:
     links = driver.find_elements(By.TAG_NAME, "a")
     download_found = False
@@ -80,6 +90,20 @@ try:
 
     if not download_found:
         raise Exception(f"リンクが見つかりませんでした: キーワード = {expected_filename_part}")
+
+    # --- ダウンロード完了を待機（最大30秒） ---
+    download_success = False
+    for i in range(30):
+        downloaded_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"*{date_str}.xlsx"))
+        if downloaded_files:
+            downloaded_path = downloaded_files[0]
+            print(f"✅ ファイルが保存されました: {downloaded_path}")
+            download_success = True
+            break
+        time.sleep(1)
+
+    if not download_success:
+        raise Exception("⚠️ 30秒待ってもファイルが見つかりませんでした。")
 
 except Exception as e:
     print("⚠️ ダウンロード処理中にエラーが発生しました。")
