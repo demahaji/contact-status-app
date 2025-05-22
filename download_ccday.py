@@ -43,15 +43,13 @@ chrome_options.add_experimental_option("prefs", prefs)
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
-# --- 日付に基づく週番号とファイル名の生成 ---
+# --- ダウンロード対象の日付を取得（＝当日） ---
 today = datetime.date.today()
-target_date = today  # 実データが前日分なら `today - datetime.timedelta(days=1)` にする
-year, week_number, _ = target_date.isocalendar()
-week_str = f"week-{week_number}"
-date_str = target_date.strftime("%Y-%m-%d")
-expected_filename_part = f"JP-DEMA-DEJ3-{week_str}-Daily_ContactCompliance-{date_str}.xlsx"
+date_str = today.strftime("%Y-%m-%d")
+expected_filename_part = f"Daily_ContactCompliance-{date_str}.xlsx"
 
-# --- レポートページへアクセス ---
+# --- レポートページのURL生成 ---
+year, week_number, _ = today.isocalendar()
 report_url = (
     f"https://logistics.amazon.co.jp/performance?pageId=dsp_supp_reports"
     f"&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
@@ -61,7 +59,7 @@ report_url = (
 driver.get(report_url)
 time.sleep(3)
 
-# --- ログイン ---
+# --- ログイン処理 ---
 email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
 email_input.send_keys(EMAIL)
 email_input.send_keys(Keys.RETURN)
@@ -81,8 +79,9 @@ try:
 
     for link in links:
         href = link.get_attribute("href")
-        if href and expected_filename_part in href:
-            print(f"✅ 該当ファイルリンクを発見: {href}")
+        text = link.text
+        if (href and expected_filename_part in href) or (expected_filename_part in text):
+            print(f"✅ 該当ファイルリンクを発見: {href or text}")
             driver.execute_script("arguments[0].click();", link)
             print("📥 ダウンロードを開始しました。")
             download_found = True
