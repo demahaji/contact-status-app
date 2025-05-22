@@ -43,13 +43,13 @@ chrome_options.add_experimental_option("prefs", prefs)
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
-# --- ダウンロード対象の日付を取得（＝当日） ---
+# --- 日付に基づくファイル名の構築 ---
 today = datetime.date.today()
-date_str = today.strftime("%Y-%m-%d")
-expected_filename_part = f"Daily_ContactCompliance-{date_str}.xlsx"
+target_date = today  # 実データが「前日」なら `today - datetime.timedelta(days=1)` に変更
+year, week_number, _ = target_date.isocalendar()
+date_str = target_date.strftime("%Y-%m-%d")
 
-# --- レポートページのURL生成 ---
-year, week_number, _ = today.isocalendar()
+# --- レポートページURLを生成 ---
 report_url = (
     f"https://logistics.amazon.co.jp/performance?pageId=dsp_supp_reports"
     f"&navMenuVariant=external&station=DEJ3&companyId=114cd7d4-070f-421f-b41e-550a248ec5c7"
@@ -59,7 +59,7 @@ report_url = (
 driver.get(report_url)
 time.sleep(3)
 
-# --- ログイン処理 ---
+# --- ログイン ---
 email_input = wait.until(EC.presence_of_element_located((By.ID, "ap_email")))
 email_input.send_keys(EMAIL)
 email_input.send_keys(Keys.RETURN)
@@ -80,7 +80,11 @@ try:
     for link in links:
         href = link.get_attribute("href")
         text = link.text
-        if (href and expected_filename_part in href) or (expected_filename_part in text):
+        if (
+            href and "Daily_ContactCompliance" in href and date_str in href
+        ) or (
+            "Daily_ContactCompliance" in text and date_str in text
+        ):
             print(f"✅ 該当ファイルリンクを発見: {href or text}")
             driver.execute_script("arguments[0].click();", link)
             print("📥 ダウンロードを開始しました。")
@@ -88,12 +92,12 @@ try:
             break
 
     if not download_found:
-        raise Exception(f"リンクが見つかりませんでした: キーワード = {expected_filename_part}")
+        raise Exception(f"リンクが見つかりませんでした: キーワード = Daily_ContactCompliance-{date_str}.xlsx")
 
     # --- ダウンロード完了を待機（最大30秒） ---
     download_success = False
     for i in range(30):
-        downloaded_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"*{date_str}.xlsx"))
+        downloaded_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"*Daily_ContactCompliance*{date_str}*.xlsx"))
         if downloaded_files:
             downloaded_path = downloaded_files[0]
             print(f"✅ ファイルが保存されました: {downloaded_path}")
