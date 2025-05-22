@@ -11,7 +11,7 @@ import time
 import os
 import glob
 
-# --- ログイン情報（GitHub Secrets などの環境変数） ---
+# --- ログイン情報（GitHub Secrets から渡される） ---
 EMAIL = os.environ.get("CCDAY_EMAIL")
 PASSWORD = os.environ.get("CCDAY_PASSWORD")
 
@@ -45,7 +45,7 @@ wait = WebDriverWait(driver, 20)
 
 # --- 日付に基づくファイル名の構築 ---
 today = datetime.date.today()
-target_date = today  # 実データが「前日」の場合は `today - datetime.timedelta(days=1)`
+target_date = today  # 必要に応じて `today - datetime.timedelta(days=1)` に
 year, week_number, _ = target_date.isocalendar()
 date_str = target_date.strftime("%Y-%m-%d")
 
@@ -78,16 +78,16 @@ try:
     download_found = False
 
     for link in links:
-        text = link.text.strip()
-        if "Daily_ContactCompliance" in text and date_str in text:
-            print(f"✅ 対象リンク発見: {text}")
+        href = link.get_attribute("href")
+        if href and "Daily_ContactCompliance" in href and date_str in href:
+            print(f"✅ 該当ファイルリンクを発見: {href}")
             driver.execute_script("arguments[0].click();", link)
             print("📥 ダウンロードを開始しました。")
             download_found = True
             break
 
     if not download_found:
-        raise Exception(f"リンクが見つかりませんでした: Daily_ContactCompliance-{date_str}.xlsx")
+        raise Exception(f"リンクが見つかりませんでした: キーワード = Daily_ContactCompliance-{date_str}.xlsx")
 
     # --- ダウンロード完了を待機（最大30秒） ---
     download_success = False
