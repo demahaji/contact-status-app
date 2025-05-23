@@ -194,11 +194,17 @@ try:
                 "改善インパクト（%）": f"{improvement:.1f}%"
             })
 
-    if under_95_df:
-        result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
-        st.dataframe(result_df, use_container_width=True)
-    else:
-        st.success("🎉 実施率95%以上のドライバーのみでした。")
+ if under_95_df:
+    result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
+    st.dataframe(result_df, use_container_width=True)
+
+    # ✅ ここを追加
+    total_no_contact = result_df["未対応件数"].sum()
+    st.markdown(f"**🔢 未対応件数の合計：{total_no_contact}件**")
+
+else:
+    st.success("🎉 実施率95%以上のドライバーのみでした。")
+
 
 except Exception as e:
     st.error("❌ データの読み込み中にエラーが発生しました。")
