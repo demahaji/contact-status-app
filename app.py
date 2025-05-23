@@ -182,17 +182,18 @@ try:
         done = record["done"]
         no_contact = record["no_contact"]
         rate = (done / total) * 100 if total > 0 else 0
-        if rate < 95 and total_all > 0:
-            improved_total_done = total_all_done + no_contact
-            improved_rate = improved_total_done / total_all * 100
-            current_rate = total_all_done / total_all * 100
-            improvement = improved_rate - current_rate
-            under_95_df.append({
-                "ドライバー名": driver,
-                "実施率": f"{rate:.1f}%",
-                "未対応件数": no_contact,
-                "改善インパクト（%）": f"{improvement:.1f}%"
-            })
+       if rate < 95 and total_all > 0:
+    improved_total_done = total_all_done + no_contact
+    improved_rate = improved_total_done / total_all * 100
+    current_rate = total_all_done / total_all * 100
+    improvement = improved_rate - current_rate
+    under_95_df.append({
+        "ドライバー名": driver,
+        "実施率": f"{rate:.1f}%",
+        "未対応件数": f"{no_contact}件",  # ✅ 文字列に変換
+        "改善インパクト（%）": f"{improvement:.1f}%"
+    })
+
 
     # ✅ ここも try の内側に入れる
     if under_95_df:
