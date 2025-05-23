@@ -207,16 +207,16 @@ for driver, record in driver_records.items():
             "改善インパクト（%）": f"{improvement:.1f}%"
         })
 
-if under_95_df:
-    result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
-    st.dataframe(result_df, use_container_width=True)
-else:
-    st.success("🎉 実施率95%以上のドライバーのみでした。")
+    if under_95_df:
+        result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
+        st.dataframe(result_df, use_container_width=True)
+    else:
+        st.success("🎉 実施率95%以上のドライバーのみでした。")
 
+except Exception as e:
+    st.error("❌ データの読み込み中にエラーが発生しました。")
+    st.code(str(e))
 
-    except Exception as e:
-        st.error("❌ データの読み込み中にエラーが発生しました。")
-        st.code(str(e))
 
 else:
     st.warning(f"⚠️ ファイルが見つかりません: {file_name}")
