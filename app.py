@@ -7,6 +7,32 @@ import unicodedata
 # Secrets から安全にトークンを取得
 CHANNEL_ACCESS_TOKEN = st.secrets["line"]["channel_access_token"]
 
+# ==== LINE Messaging API 通知関数 ====
+def send_line_message(to_id: str, message_text: str, access_token: str):
+    """
+    LINE Messaging APIで指定のユーザーやグループにメッセージを送信
+    :param to_id: 送信先の userId または groupId
+    :param message_text: 送信するテキスト
+    :param access_token: チャネルアクセストークン（Messaging API用）
+    """
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}"
+    }
+    payload = {
+        "to": to_id,
+        "messages": [
+            {
+                "type": "text",
+                "text": message_text
+            }
+        ]
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    return response.status_code, response.text
+
 # ページ全体をワイドに表示
 st.set_page_config(layout="wide")
 
