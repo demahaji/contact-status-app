@@ -305,3 +305,32 @@ if st.button(button_label):
             flag_file_path.write_text("sent")
         else:
             st.error(f"❌ 通知送信に失敗しました。ステータスコード: {status} - {text}")
+
+st.markdown("---")
+st.subheader("✅ 個別改善レポート＋管理者コメントまとめて通知")
+
+if st.button("📬まとめて送信（1通目＋2通目）"):
+    if len(no_contact_df) == 0:
+        st.warning("未対応のドライバーがいません。1通目の送信はスキップされます。")
+    else:
+        # 1通目メッセージ送信
+        message1 = generate_message(no_contact_df, selected_date)
+        status1 = send_line_message(message1)
+        if status1 == 200:
+            st.success("✅ 1通目（個別レポート）を送信しました。")
+            sent_marker_path.touch()
+        else:
+            st.error("❌ 1通目（個別レポート）の送信に失敗しました。")
+
+    if not free_comment.strip():
+        st.warning("管理者コメントが入力されていません。2通目はスキップされます。")
+    else:
+        # 2通目メッセージ送信
+        comment_message = f"🚨【管理者コメント】さらなる改善に向けて\n\n{free_comment.strip()}"
+        status2 = send_line_message(comment_message)
+        if status2 == 200:
+            st.success("✅ 2通目（管理者コメント）を送信しました。")
+            comment_sent_marker_path.touch()
+        else:
+            st.error("❌ 2通目（管理者コメント）の送信に失敗しました。")
+
