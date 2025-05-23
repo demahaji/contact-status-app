@@ -3,6 +3,9 @@ import pandas as pd
 import datetime
 from pathlib import Path
 import unicodedata
+import requests
+import json
+
 
 # Secrets から安全にトークンを取得
 CHANNEL_ACCESS_TOKEN = st.secrets["line"]["channel_access_token"]
