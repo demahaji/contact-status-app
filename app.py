@@ -4,6 +4,9 @@ import datetime
 from pathlib import Path
 import unicodedata
 
+# Secrets から安全にトークンを取得
+CHANNEL_ACCESS_TOKEN = st.secrets["line"]["channel_access_token"]
+
 # ページ全体をワイドに表示
 st.set_page_config(layout="wide")
 
