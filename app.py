@@ -40,7 +40,7 @@ st.success(f"✅ ファイル: {file_name} を読み込みました")
 try:
     df = pd.read_excel(file_path)
 
-    for col in ["架電有無", "テキスト送付有無", "お客様発信有無"]:
+    for col in ["枦電有無", "テキスト送付有無", "お客様発信有無"]:
         if col in df.columns:
             df[col] = df[col].astype(str)
 
@@ -73,11 +73,7 @@ try:
         name = row["driver_name"]
         count = row["no_contact_count"]
         with st.expander(f"🚨 {name}（未対応: {count} 件）"):
-            exclude_cols = [
-                "Company", "event_week", "delivery_station_code",
-                "provider_company_short_code", "provider_type",
-                "架電有無", "テキスト送付有無"
-            ]
+            exclude_cols = ["Company", "event_week", "delivery_station_code", "provider_company_short_code", "provider_type", "枦電有無", "テキスト送付有無"]
             display_cols = [col for col in no_contact_df.columns if col not in exclude_cols]
             st.dataframe(no_contact_df[no_contact_df["driver_name"] == name][display_cols], use_container_width=True)
 
@@ -114,25 +110,15 @@ try:
                 else:
                     raise ValueError("contact_status カラムが見つかりません")
             except:
-                summary_data.append({
-                    "日付": target_day.strftime("%Y-%m-%d"),
-                    "実施率": "N/A",
-                    "必要件数": "N/A",
-                    "未対応件数": "N/A"
-                })
+                summary_data.append({"日付": target_day.strftime("%Y-%m-%d"), "実施率": "N/A", "必要件数": "N/A", "未対応件数": "N/A"})
         else:
-            summary_data.append({
-                "日付": target_day.strftime("%Y-%m-%d"),
-                "実施率": "N/A",
-                "必要件数": "N/A",
-                "未対応件数": "N/A"
-            })
+            summary_data.append({"日付": target_day.strftime("%Y-%m-%d"), "実施率": "N/A", "必要件数": "N/A", "未対応件数": "N/A"})
 
     summary_df = pd.DataFrame(summary_data)
     st.dataframe(summary_df, use_container_width=True)
 
-    # ==== 🚨 過去7日間の実施率が95%未満のドライバー ====
-    st.markdown("## 🚨 過去7日間の実施率が95%未満のドライバー（改善インパクト）")
+    # ==== 🚨 過去7日間の実施率95%未満のドライバー ====
+    st.markdown("## 🚨 過去7日間の実施率95%未満のドライバー（改善インパクト）")
 
     driver_records = {}
     total_all = 0
@@ -193,21 +179,60 @@ try:
             under_95_df.append({
                 "ドライバー名": driver,
                 "実施率": f"{rate:.1f}%",
-                "未対応件数": no_contact,  # 数値のまま保持
+                "未対応件数": no_contact,
                 "改善インパクト（%）": f"{improvement:.1f}%"
             })
 
     if under_95_df:
         result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
-        result_df["未対応件数"] = result_df["未対応件数"].astype(str) + " 件"  # 件を付ける
+        result_df["未対応件数"] = result_df["未対応件数"].astype(str) + " 件"
         st.dataframe(result_df, use_container_width=True)
 
         total_no_contact = result_df["未対応件数"].str.replace(" 件", "").astype(int).sum()
         st.markdown(f"**🔢 未対応件数の合計：{total_no_contact}件**")
+
+        # ==== 通知メッセージ生成 ====
+        today_str = selected_date.strftime("%-m月%-d日")
+        current_rate = total_all_done / total_all * 100 if total_all > 0 else 0
+        improved_rate = (total_all_done + total_all_no_contact) / total_all * 100 if total_all > 0 else 0
+
+        message_lines = [
+            f"🚀【対応状況のご連絡】{today_str}時点",
+            "",
+            "日々のご対応、本当にありがとうございます！",
+            "以下の方々のアクションで、さらに組織全体の実施率が向上します✨",
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━"
+        ]
+
+        for _, row in result_df.iterrows():
+            name = row["ドライバー名"]
+            no_contact = row["未対応件数"]
+            improvement = row["改善インパクト（%）"]
+            try:
+                new_rate = current_rate + float(improvement.replace("%", ""))
+            except:
+                new_rate = current_rate
+
+            message_lines.append(f"🌟 {name}（未対応 {no_contact}）")
+            message_lines.append(f"📈 対応で実施率 +{improvement} UP！")
+            message_lines.append(f"➡ 改善後：{new_rate:.1f}%")
+            message_lines.append("")
+
+        message_lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        message_lines.append(f"\n✅ 現在の組織実施率：{current_rate:.1f}%")
+        message_lines.append(f"🎯 全員が対応すると：{improved_rate:.1f}% に！")
+        message_lines.append("")
+        message_lines.append("💡 あなたの行動が、チーム全体を引き上げます！")
+        message_lines.append("引き続きよろしくお願いします💪✨")
+
+        notify_message = "\n".join(message_lines)
+        st.markdown("## ✉️ 通知メッセージ（プレビュー）")
+        st.code(notify_message)
+
     else:
         st.success("🎉 実施率95%以上のドライバーのみでした。")
 
-# ===== エラー処理（全体）=====
 except Exception as e:
     st.error("❌ データの読み込み中にエラーが発生しました。")
     st.code(str(e))
