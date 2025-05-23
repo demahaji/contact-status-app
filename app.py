@@ -237,3 +237,42 @@ except Exception as e:
     st.error("❌ データの読み込み中にエラーが発生しました。")
     st.code(str(e))
     st.stop()
+
+    st.stop()
+    
+    # ==== 📣 Freeコメント通知（管理者コメント） ====
+    st.markdown("## 🗒️ 管理者Freeコメント通知")
+
+    # コメント入力欄
+    free_comment = st.text_area("📬 コメントを入力してください（ドライバーへのメッセージ）", height=150)
+
+    # 保存先ファイル（コメント送信済みフラグ）
+    flag_file_path = DATA_FOLDER / f"comment_sent_flag_{file_date_str}.txt"
+
+    # 送信済みかどうか確認
+    if flag_file_path.exists():
+        sent = True
+        button_label = "🔁 再送信"
+    else:
+        sent = False
+        button_label = "📤 送信"
+
+    # 通知送信処理
+    if st.button(button_label):
+        if not free_comment.strip():
+            st.warning("⚠️ コメントを入力してください。")
+        else:
+            import requests
+
+            LINE_NOTIFY_TOKEN = "YOUR_LINE_NOTIFY_TOKEN_HERE"  # ← トークンを忘れずに
+            LINE_NOTIFY_API = "https://notify-api.line.me/api/notify"
+
+            headers = {"Authorization": f"Bearer {LINE_NOTIFY_TOKEN}"}
+            payload = {"message": f"🚨【管理者コメント】さらなる改善に向けて\n\n{free_comment.strip()}"}
+            response = requests.post(LINE_NOTIFY_API, headers=headers, data=payload)
+
+            if response.status_code == 200:
+                st.success("✅ 通知を送信しました！")
+                flag_file_path.write_text("sent")
+            else:
+                st.error(f"❌ 通知送信に失敗しました。ステータスコード: {response.status_code}")
