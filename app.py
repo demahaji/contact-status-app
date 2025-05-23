@@ -140,6 +140,80 @@ if file_path and file_path.exists():
             summary_df = pd.DataFrame(summary_data)
             st.dataframe(summary_df, use_container_width=True)
 
+# ==== 🚨 実施率が95%未満のドライバー（改善インパクト） ====
+st.markdown("## 🚨 実施率が95%未満のドライバー（改善インパクト）")
+
+driver_records = {}
+total_all = 0
+total_all_done = 0
+total_all_no_contact = 0
+
+for i in range(7):
+    target_day = selected_date - datetime.timedelta(days=i)
+    upload_day = target_day + datetime.timedelta(days=1)
+    fname = upload_day.strftime("%Y-%m-%d")
+    fpath = next(DATA_FOLDER.glob(f"*{fname}*.xlsx"), None)
+
+    if fpath and fpath.exists():
+        try:
+            day_df = pd.read_excel(fpath)
+
+            if "contact_status" in day_df.columns and "transporter_id" in day_df.columns:
+                if MAPPING_FILE.exists():
+                    mapping_df = pd.read_csv(MAPPING_FILE)
+                    mapping_df["transporter_id"] = mapping_df["transporter_id"].apply(lambda x: unicodedata.normalize("NFKC", str(x)).strip())
+                    mapping_df["driver_name"] = mapping_df["driver_name"].apply(lambda x: str(x).strip())
+                    mapping_dict = dict(zip(mapping_df["transporter_id"], mapping_df["driver_name"]))
+                    day_df["transporter_id"] = day_df["transporter_id"].apply(lambda x: unicodedata.normalize("NFKC", str(x)).strip())
+                    day_df["driver_name"] = day_df["transporter_id"].map(mapping_dict).fillna(day_df["transporter_id"])
+                else:
+                    day_df["driver_name"] = day_df["transporter_id"]
+
+                for driver, group in day_df.groupby("driver_name"):
+                    total = group["contact_status"].isin(["both_call_and_textcall_only", "text_only", "call_only", "no_contact"]).sum()
+                    no_contact = (group["contact_status"] == "no_contact").sum()
+                    done = total - no_contact
+
+                    if driver not in driver_records:
+                        driver_records[driver] = {"done": 0, "total": 0, "no_contact": 0}
+                    driver_records[driver]["done"] += done
+                    driver_records[driver]["total"] += total
+                    driver_records[driver]["no_contact"] += no_contact
+
+                    total_all += total
+                    total_all_done += done
+                    total_all_no_contact += no_contact
+        except:
+            continue
+
+under_95_df = []
+
+for driver, record in driver_records.items():
+    total = record["total"]
+    done = record["done"]
+    no_contact = record["no_contact"]
+    rate = (done / total) * 100 if total > 0 else 0
+
+    if rate < 95 and total_all > 0:
+        improved_total_done = total_all_done + no_contact
+        improved_rate = improved_total_done / total_all * 100
+        current_rate = total_all_done / total_all * 100
+        improvement = improved_rate - current_rate
+
+        under_95_df.append({
+            "ドライバー名": driver,
+            "実施率": f"{rate:.1f}%",
+            "未対応件数": no_contact,
+            "改善インパクト（%）": f"{improvement:.1f}%"
+        })
+
+if under_95_df:
+    result_df = pd.DataFrame(under_95_df).sort_values("改善インパクト（%）", ascending=False)
+    st.dataframe(result_df, use_container_width=True)
+else:
+    st.success("🎉 実施率95%以上のドライバーのみでした。")
+
+
     except Exception as e:
         st.error("❌ データの読み込み中にエラーが発生しました。")
         st.code(str(e))
