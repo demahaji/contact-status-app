@@ -67,7 +67,7 @@ try:
     summary.columns = ["driver_name", "no_contact_count"]
 
     # ==== 表示 ====
-    st.markdown("## 🔔 未対応のドライバー（クリックで展開）")
+    st.markdown("## 🔔 未対応のドライバー")
     for _, row in summary.iterrows():
         name = row["driver_name"]
         count = row["no_contact_count"]
@@ -131,7 +131,7 @@ try:
     st.dataframe(summary_df, use_container_width=True)
 
     # ==== 🚨 過去7日間の実施率が95%未満のドライバー（改善インパクト） ====
-    st.markdown("## 🚨 実施率が95%未満のドライバー（改善インパクト）")
+    st.markdown("## 🚨 過去7日間の実施率が95%未満のドライバー（改善インパクト）")
 
     driver_records = {}
     total_all = 0
