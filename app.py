@@ -12,21 +12,34 @@ CHANNEL_ACCESS_TOKEN = st.secrets["line"]["channel_access_token"]
 # タイトル
 st.title("Contact状況可視化アプリ📊")
 
-# 日付選択
+# 日付選択（配送日を選択）
 selected_date = st.date_input("📅 確認する日付を選択", datetime.date.today())
-file_date_str = selected_date.strftime("%Y-%m-%d")
-file_path = DATA_FOLDER / f"{file_date_str}.xlsx"
+
+# ファイルの日付は配送日の翌日（アップロード日）
+upload_date = selected_date + datetime.timedelta(days=1)
+upload_date_str = upload_date.strftime("%Y-%m-%d")
+
+# ファイル検索
+file_path = None
+for file in DATA_FOLDER.glob(f"*{upload_date_str}.xlsx"):
+    file_path = file
+    break
 
 # データ読み込み
-if file_path.exists():
-    df = pd.read_excel(file_path)
-else:
+if file_path is None:
     st.error("指定された日付のファイルが存在しません。")
     st.stop()
+else:
+    df = pd.read_excel(file_path)
 
 # 未対応データ抽出
 no_contact_df = df[df["contact_status"] == "no_contact"]
-impact_drivers = df[df["impact"] == "high"]["driver_name"].unique()
+
+# impact列が存在する場合のみ抽出
+if "impact" in df.columns and "driver_name" in df.columns:
+    impact_drivers = df[df["impact"] == "high"]["driver_name"].unique()
+else:
+    impact_drivers = []
 
 # 表示
 st.subheader("📌 未対応ドライバー一覧")
@@ -79,19 +92,16 @@ def send_line_message(to: str, message: str, token: str):
     response = requests.post("https://api.line.me/v2/bot/message/push", json=payload, headers=headers)
     return response.status_code, response.text
 
-# フラグファイルパス
-sent_marker_path = DATA_FOLDER / f"message1_sent_flag_{file_date_str}.txt"
-comment_sent_marker_path = DATA_FOLDER / f"message2_sent_flag_{file_date_str}.txt"
+# 送信フラグファイル（アップロード日をベースに保存）
+sent_marker_path = DATA_FOLDER / f"message1_sent_flag_{upload_date_str}.txt"
+comment_sent_marker_path = DATA_FOLDER / f"message2_sent_flag_{upload_date_str}.txt"
 
-# 送信済みフラグチェック
+# 送信状況判定
 message1_sent = sent_marker_path.exists()
 message2_sent = comment_sent_marker_path.exists()
 
-# ボタンラベルを切り替え
-if message1_sent and message2_sent:
-    button_label = "🔁再送信（1通目＋2通目）"
-else:
-    button_label = "📬まとめて送信（1通目＋2通目）"
+# ボタンラベル切り替え
+button_label = "🔁再送信（1通目＋2通目）" if message1_sent and message2_sent else "📬まとめて送信（1通目＋2通目）"
 
 # 通知セクション
 st.subheader("✅ 個別改善レポート＋管理者コメントまとめて通知")
@@ -99,7 +109,7 @@ group_id = st.secrets["line"]["group_id"]
 
 if st.button(button_label):
     # 1通目：個別レポート
-    if len(no_contact_df) == 0:
+    if no_contact_df.empty:
         st.warning("未対応のドライバーがいません。1通目の送信はスキップされます。")
     else:
         message1 = generate_message(no_contact_df, selected_date)
