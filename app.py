@@ -15,23 +15,24 @@ st.title("Contact状況可視化アプリ📊")
 # 日付選択
 selected_date = st.date_input("📅 確認する日付を選択", datetime.date.today())
 file_date_str = selected_date.strftime("%Y-%m-%d")
-# 日付からファイルを動的に検索（例：2025-05-23 を含むファイル名を探す）
+
+# 日付からファイルを動的に検索（.xlsxのみ対象）
 def find_file_by_date(date_str: str, folder: Path) -> Path | None:
     for file in folder.glob(f"*{date_str}*.xlsx"):
-        return file
+        if file.suffix == ".xlsx":
+            return file
     return None
 
 file_path = find_file_by_date(file_date_str, DATA_FOLDER)
 if file_path is None:
-    st.error("指定された日付のファイルが存在しません。")
+    st.error("指定された日付のExcelファイルが存在しません。")
     st.stop()
 
-
 # データ読み込み
-if file_path.exists():
+try:
     df = pd.read_excel(file_path)
-else:
-    st.error("指定された日付のファイルが存在しません。")
+except Exception as e:
+    st.error(f"Excelファイルの読み込みに失敗しました。形式に問題がある可能性があります。\n\n詳細: {e}")
     st.stop()
 
 # 未対応データ抽出
