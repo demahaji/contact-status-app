@@ -12,29 +12,10 @@ CHANNEL_ACCESS_TOKEN = st.secrets["line"]["channel_access_token"]
 # タイトル
 st.title("Contact状況可視化アプリ📊")
 
-# 日付付きファイルから候補を自動抽出
-import re
-
-def get_available_dates():
-    pattern = r"(\d{4}-\d{2}-\d{2})\.xlsx"
-    dates = []
-    for f in DATA_FOLDER.glob("*.xlsx"):
-        match = re.search(pattern, f.name)
-        if match:
-            dates.append(match.group(1))
-    return sorted(dates, reverse=True)
-
-# ファイルのある日付から選択
-available_dates = get_available_dates()
-
-if not available_dates:
-    st.error("📂 dataフォルダに日付付きのファイルが存在しません。")
-    st.stop()
-
-selected_date_str = st.selectbox("📅 確認する日付を選択", available_dates)
-file_path = DATA_FOLDER / f"{selected_date_str}.xlsx"
-selected_date = datetime.datetime.strptime(selected_date_str, "%Y-%m-%d").date()
-
+# 日付選択
+selected_date = st.date_input("📅 確認する日付を選択", datetime.date.today())
+file_date_str = selected_date.strftime("%Y-%m-%d")
+file_path = DATA_FOLDER / f"{file_date_str}.xlsx"
 
 # データ読み込み
 if file_path.exists():
